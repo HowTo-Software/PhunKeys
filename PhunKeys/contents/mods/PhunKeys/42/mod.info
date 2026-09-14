@@ -1,0 +1,5 @@
+name=PhunKeys
+id=phunkeys
+description=Package approved vehicles into PhunMart vehicle claim keys.
+require=phunmart2
+author=RAVEN

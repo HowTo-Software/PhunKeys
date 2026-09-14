@@ -1,0 +1,38 @@
+module Base
+{
+    sound PhunKeys_KeyInsert
+    {
+        category = Player,
+        loop = false,
+        is3D = false,
+        clip
+        {
+            file = media/sound/key_insert.wav,
+            volume = 0.5,
+        }
+    }
+
+    sound PhunKeys_Transmute
+    {
+        category = Player,
+        loop = false,
+        is3D = false,
+        clip
+        {
+            file = media/sound/transmute.wav,
+            volume = 0.5,
+        }
+    }
+
+    sound PhunKeys_KeyRemove
+    {
+        category = Player,
+        loop = false,
+        is3D = false,
+        clip
+        {
+            file = media/sound/key_remove.wav,
+            volume = 0.5,
+        }
+    }
+}

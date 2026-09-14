@@ -1,0 +1,11 @@
+version=1
+title=PhunKeys
+description=Convert an eligible PhunMart-purchased vehicle back into a trade-in key.
+description=
+description=Place the vehicle's vanilla car key in the Transmutation Box, stand near the matching empty vehicle, and transmute it into a Vehicle Trade-In Key.
+description=
+description=The box holds one car key at a time. Transmutation permanently removes the vehicle and preserves no vehicle claim data. Sell the resulting trade-in key through PhunMart's economy configuration.
+description=
+description=Requires PhunMart2.
+tags=Build 42;Items;Vehicles;Balance
+visibility=public
