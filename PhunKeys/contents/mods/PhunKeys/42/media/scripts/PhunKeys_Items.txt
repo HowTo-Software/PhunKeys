@@ -1,24 +1,21 @@
-module PhunKeys
-{
-    imports
-    {
-        Base,
+module PhunKeys {
+    imports {
+        Base
     }
-
-    item TransmutationBox
-    {
+    item TransmutationBox {
         DisplayName = Vehicle Conversion Box,
         ItemType = base:container,
-        Weight = 0.2,
-        Icon = Cube,
-        StaticModel = CubePuzzle,
-        WorldStaticModel = Cube_Ground,
+        DisplayCategory = Keys,
+        Weight = 0.1,
+        Icon = lament,
+        StaticModel = PhunKeysCube,
+        WorldStaticModel = PhunKeysCube_Ground,
         Capacity = 1,
         WeightReduction = 85,
         AcceptItemFunction = AcceptItemFunction.AcceptVanillaCarKey,
         PutInSound = PhunKeys_KeyInsert,
         Tags = base:keyring;base:neverempty;base:bagsfillexception,
-    }
+}
 
     item VehicleKeySeller
     {

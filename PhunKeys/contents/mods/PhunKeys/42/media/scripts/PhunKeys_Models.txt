@@ -1,0 +1,16 @@
+module PhunKeys
+{
+    model PhunKeysCube
+    {
+        mesh = WorldItems/cube,
+        texture = lamentbox,
+        scale = 0.009,
+    }
+
+    model PhunKeysCube_Ground
+    {
+        mesh = WorldItems/cube,
+        texture = WorldItems/lamentbox,
+        scale = 0.009,
+    }
+}
