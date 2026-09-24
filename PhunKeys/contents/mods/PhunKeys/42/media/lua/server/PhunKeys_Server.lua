@@ -1,8 +1,10 @@
+print("[PhunKeys][BOOT][DEBUG3-SET-ITERATOR] ENTER SERVER PhunKeys_Server.lua")
 if isClient() then
     return
 end
 
 require "PhunKeys_Shared"
+require "PhunKeys_Access"
 
 local function log(message)
     print("[PhunKeys] " .. tostring(message))
@@ -186,6 +188,11 @@ local function packVehicle(player, arguments)
         return
     end
 
+    if key:isFavorite() then
+        log("Rejected Transmute: the car key is favorited.")
+        return
+    end
+
     local keyId = key:getKeyId()
     local vehicle = vehicleForKey(player, keyId)
 
@@ -242,13 +249,153 @@ local function packVehicle(player, arguments)
     )
 end
 
+-- Lock/GrantAccess deliberately do not use vehicleForKey(): passengers/cargo are allowed.
+local function accessResult(player, message)
+    log(message)
+    if isServer() then
+        sendServerCommand(player, PhunKeys.module, PhunKeys.accessResultCommand, {
+            playerNum = player:getPlayerNum(), message = message
+        })
+    else
+        player:Say(message)
+    end
+end
+
+local function accessVehicleForBox(player, arguments, actionName)
+    log("[" .. tostring(actionName) .. "] validating request; arguments=" .. tostring(arguments))
+    local boxId = type(arguments) == "table" and tonumber(arguments.boxId) or nil
+    log("[" .. tostring(actionName) .. "] boxId=" .. tostring(boxId))
+    local box = boxId and findBox(player, boxId) or nil
+    if not box then
+        log("[" .. tostring(actionName) .. "] FAILED: box not found in player inventory")
+    else
+        log("[" .. tostring(actionName) .. "] box found; fullType=" .. tostring(box:getFullType()))
+    end
+    local key = box and carKeyInBox(box) or nil
+    if not key then
+        log("[" .. tostring(actionName) .. "] FAILED: no valid Base.CarKey in box")
+        accessResult(player, actionName .. " requires one favorited car key in your box.")
+        return nil
+    end
+    log("[" .. tostring(actionName) .. "] keyId=" .. tostring(key:getKeyId())
+        .. " favorite=" .. tostring(key:isFavorite()))
+    if not key:isFavorite() then
+        log("[" .. tostring(actionName) .. "] FAILED: key is not favorited server-side")
+        accessResult(player, actionName .. " requires one favorited car key in your box.")
+        return nil
+    end
+    local vehicles = getCell():getVehicles()
+    if not vehicles then
+        log("[" .. tostring(actionName) .. "] FAILED: getCell():getVehicles() returned nil")
+        accessResult(player, "No matching vehicle within reach.")
+        return nil
+    end
+    log("[" .. tostring(actionName) .. "] searching " .. tostring(vehicles:size()) .. " loaded vehicles")
+    -- IsoCell:getVehicles() is java.util.Set<BaseVehicle> in B42.20.x.
+    local iterator = vehicles:iterator()
+    local i = 0
+    while iterator:hasNext() do
+        local vehicle = iterator:next()
+        if vehicle then
+            local vehicleKeyId = vehicle:getKeyId()
+            if vehicleKeyId == key:getKeyId() then
+                local dx = player:getX() - vehicle:getX()
+                local dy = player:getY() - vehicle:getY()
+                local dist2 = dx * dx + dy * dy
+                local sameZ = math.floor(player:getZ()) == math.floor(vehicle:getZ())
+                log("[" .. tostring(actionName) .. "] matched key vehicle iterIndex=" .. tostring(i)
+                    .. " vehicleId=" .. tostring(vehicle:getId())
+                    .. " dist2=" .. tostring(dist2)
+                    .. " maxDist2=" .. tostring(PhunKeys.maxDistance * PhunKeys.maxDistance)
+                    .. " sameZ=" .. tostring(sameZ)
+                    .. " protected=" .. tostring(PhunKeys.isProtected(vehicle))
+                    .. " guestAccess=" .. tostring(PhunKeys.isGuestAccessGranted(vehicle)))
+                if isNearVehicle(player, vehicle) and sameZ then
+                    log("[" .. tostring(actionName) .. "] vehicle validation PASSED")
+                    return vehicle
+                end
+            end
+        end
+        i = i + 1
+    end
+    log("[" .. tostring(actionName) .. "] FAILED: no matching vehicle within reach")
+    accessResult(player, "No matching vehicle within reach.")
+    return nil
+end
+
+local function setVehicleDoorLocks(vehicle, locked)
+    local changed = 0
+    log("Setting physical door locks vehicleId=" .. tostring(vehicle:getId()) .. " locked=" .. tostring(locked))
+    for i = 0, vehicle:getPartCount() - 1 do
+        local part = vehicle:getPartByIndex(i)
+        if part and part:getDoor() and part:getInventoryItem() then
+            log("  door part=" .. tostring(part:getId()) .. " previousLocked=" .. tostring(part:getDoor():isLocked()))
+            part:getDoor():setLocked(locked)
+            vehicle:transmitPartDoor(part)
+            changed = changed + 1
+        end
+    end
+    vehicle:setTrunkLocked(locked)
+    log("Physical lock update complete; doorPartsChanged=" .. tostring(changed) .. " trunkLocked=" .. tostring(locked))
+end
+
+function PhunKeys.Lock(player, arguments)
+    log("Received Lock request from " .. tostring(player:getUsername()))
+    local vehicle = accessVehicleForBox(player, arguments, "Lock")
+    if not vehicle then return false end
+
+    local part = PhunKeys.accessPart(vehicle)
+    if not part then
+        accessResult(player, "Matching vehicle has no usable protection part.")
+        return false
+    end
+
+    local data = part:getModData()
+    data.PhunKeysAccess = true
+    data.PhunKeysGuestAccess = false
+    vehicle:transmitPartModData(part)
+    setVehicleDoorLocks(vehicle, true)
+    accessResult(player, "Vehicle locked. Guest access revoked.")
+    return true
+end
+
+function PhunKeys.GrantAccess(player, arguments)
+    log("Received GrantAccess request from " .. tostring(player:getUsername()))
+    local vehicle = accessVehicleForBox(player, arguments, "Grant Access")
+    if not vehicle then return false end
+    if not PhunKeys.isProtected(vehicle) then
+        accessResult(player, "Lock the vehicle with PhunKeys before granting access.")
+        return false
+    end
+
+    local part = PhunKeys.accessPart(vehicle)
+    if not part then
+        accessResult(player, "Matching vehicle has no usable protection part.")
+        return false
+    end
+
+    part:getModData().PhunKeysGuestAccess = true
+    vehicle:transmitPartModData(part)
+    setVehicleDoorLocks(vehicle, false)
+    accessResult(player, "Access granted. Vehicle unlocked for guests.")
+    return true
+end
+
 Events.OnClientCommand.Add(function(module, command, player, arguments)
     if module ~= PhunKeys.module then
         return
     end
 
+    log("OnClientCommand command=" .. tostring(command)
+        .. " player=" .. tostring(player and player:getUsername() or "nil")
+        .. " arguments=" .. tostring(arguments))
+
     if command == PhunKeys.command then
         packVehicle(player, arguments)
+    elseif command == PhunKeys.grantAccessCommand then
+        PhunKeys.GrantAccess(player, arguments)
+    elseif command == PhunKeys.lockCommand then
+        PhunKeys.Lock(player, arguments)
     end
 end)
 

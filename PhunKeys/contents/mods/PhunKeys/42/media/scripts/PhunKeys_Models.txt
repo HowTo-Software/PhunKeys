@@ -2,14 +2,14 @@ module PhunKeys
 {
     model PhunKeysCube
     {
-        mesh = WorldItems/cube,
+        mesh = WorldItems/lament,
         texture = lamentbox,
         scale = 0.009,
     }
 
     model PhunKeysCube_Ground
     {
-        mesh = WorldItems/cube,
+        mesh = WorldItems/lament,
         texture = WorldItems/lamentbox,
         scale = 0.009,
     }
